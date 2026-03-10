@@ -19,7 +19,8 @@ const randomizeBtn = document.getElementById('randomizeBtn');
 let n = 8;
 let queens = [];
 let conflicts = [];
-let stepCount = 0;
+let stepCount = 0;           // TOTAL steps across ALL attempts
+let attemptSteps = 0;        // Steps in current attempt only
 let attemptCount = 1;
 let isPaused = false;
 let isSolved_flag = false;
@@ -29,14 +30,13 @@ let animationTimer = null;
 // Stall detection
 let lastConflicts = 0;
 let stallCounter = 0;
-const STALL_THRESHOLD = 50; // Number of steps without improvement before restart
+const STALL_THRESHOLD = 50;
 
 // Speed slider event
 speedSlider.addEventListener('input', function() {
     speed = parseInt(this.value);
     speedValue.textContent = speed + ' steps/sec';
     
-    // Restart animation with new speed
     if (animationTimer) {
         clearInterval(animationTimer);
         startAnimation();
@@ -60,7 +60,7 @@ function init() {
         queens.push(Math.floor(Math.random() * n));
     }
     calculateConflicts();
-    stepCount = 0;
+    attemptSteps = 0;
     lastConflicts = totalConflicts();
     stallCounter = 0;
     isSolved_flag = checkSolved();
@@ -135,18 +135,24 @@ function checkForStall() {
         if (stallCounter >= STALL_THRESHOLD) {
             // Stall detected - restart with new random board
             attemptCount++;
-            console.log(`Stall detected! Restarting attempt #${attemptCount}`);
             
-            // Visual indication of restart
-            statusDiv.textContent = `🔄 Restarting attempt #${attemptCount}...`;
+            // Save current steps to total
+            // stepCount already includes attemptSteps from this attempt
             
-            // Short delay before restart (so user can see)
-            setTimeout(() => {
-                init();
-                draw();
-            }, 500);
+            // Start new attempt
+            queens = [];
+            for (let i = 0; i < n; i++) {
+                queens.push(Math.floor(Math.random() * n));
+            }
+            calculateConflicts();
+            attemptSteps = 0;
+            lastConflicts = totalConflicts();
+            stallCounter = 0;
+            isSolved_flag = checkSolved();
+            updateUI();
+            draw();
             
-            return true; // Restart initiated
+            return true; // Restart performed
         }
     } else {
         // Improvement! Reset stall counter
@@ -163,7 +169,7 @@ function step() {
     
     // Check for stall before proceeding
     if (checkForStall()) {
-        return; // Restart was initiated
+        return; // Restart was performed
     }
     
     // Find conflicting queens
@@ -212,7 +218,8 @@ function step() {
     
     // Recalculate conflicts
     calculateConflicts();
-    stepCount++;
+    stepCount++;           // Increment TOTAL steps
+    attemptSteps++;        // Increment attempt steps
     isSolved_flag = checkSolved();
     
     // Update display
@@ -323,32 +330,8 @@ function draw() {
         }
     }
     
-    // Draw attempt counter
-    if (attemptCount > 1 && !isSolved_flag) {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.font = 'bold 16px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText(`Attempt #${attemptCount}`, size-10, 30);
-        
-        // Add stall warning if close to restart
-        if (stallCounter > STALL_THRESHOLD * 0.7) {
-            ctx.fillStyle = 'rgba(255, 165, 0, 0.8)';
-            ctx.font = 'bold 14px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText(`⚠️ Stalled...`, 10, 30);
-        }
-    }
-    
-    // Draw solved celebration
-    if (isSolved_flag) {
-        ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';  // Gold overlay
-        ctx.fillRect(0, 0, size, size);
-        
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 30px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('✓ SOLVED ✓', size/2, size/2);
-    }
+    // NO TEXT ON BOARD - removed attempt counter and stall warning
+    // NO SOLVED OVERLAY - board stays normal when solved
 }
 
 // Animation function
@@ -370,7 +353,8 @@ function togglePlay() {
 
 // Randomize board
 function randomize() {
-    attemptCount = 1; // Reset attempt counter on manual randomize
+    stepCount = 0;  // Reset total steps on manual randomize
+    attemptCount = 1;
     init();
     if (!isPaused && animationTimer) {
         startAnimation();
@@ -391,6 +375,7 @@ function reset() {
     // Reset state
     isPaused = false;
     isSolved_flag = false;
+    stepCount = 0;      // Reset total steps
     attemptCount = 1;
     playPauseBtn.textContent = '⏸️ Pause';
     
