@@ -1,4 +1,4 @@
-cclass NQueensVisualizer {
+class NQueensVisualizer {
     constructor() {
         this.canvas = document.getElementById('board-canvas');
         this.ctx = this.canvas.getContext('2d');
@@ -19,15 +19,15 @@ cclass NQueensVisualizer {
         this.diag2Conflicts = [];
         this.conflicts = [];
         
-        // Animation state - FIXED: Better animation control
+        // Animation state
         this.step = 0;
         this.attempt = 1;
         this.solved = false;
         this.paused = false;
         this.speed = 10;
-        this.animationId = null;  // Store animation ID
+        this.animationId = null;
         this.lastUpdate = 0;
-        this.animationRunning = false;  // Track if animation is running
+        this.animationRunning = false;
         
         // UI elements
         this.stepsSpan = document.getElementById('steps-count');
@@ -47,11 +47,13 @@ cclass NQueensVisualizer {
         this.togglePause = this.togglePause.bind(this);
         this.startAnimation = this.startAnimation.bind(this);
         this.stopAnimation = this.stopAnimation.bind(this);
+        this.startNewBoard = this.startNewBoard.bind(this);
         
         // Setup event listeners
         this.setupEventListeners();
         
         // Initialize board
+        this.initializeArrays();
         this.randomize();
         
         // Start animation immediately
@@ -59,15 +61,7 @@ cclass NQueensVisualizer {
     }
     
     setupEventListeners() {
-        document.getElementById('start-btn').addEventListener('click', () => {
-            const newN = parseInt(this.nInput.value);
-            if (newN >= 4 && newN <= 30) {
-                this.n = newN;
-                this.reset();
-            } else {
-                alert('Please enter a number between 4 and 30');
-            }
-        });
+        document.getElementById('start-btn').addEventListener('click', this.startNewBoard);
         
         this.playPauseBtn.addEventListener('click', this.togglePause);
         
@@ -83,19 +77,19 @@ cclass NQueensVisualizer {
         document.getElementById('randomize-btn').addEventListener('click', () => {
             this.randomize();
             this.draw();
-            // Restart animation if it was running
-            if (!this.paused && !this.animationRunning) {
-                this.startAnimation();
-            }
+            // Make sure animation is running
+            this.paused = false;
+            this.playPauseBtn.textContent = '⏸️ Pause';
+            this.startAnimation();
         });
         
         document.getElementById('reset-btn').addEventListener('click', () => {
             this.reset();
             this.draw();
-            // Restart animation if it was running
-            if (!this.paused && !this.animationRunning) {
-                this.startAnimation();
-            }
+            // Make sure animation is running
+            this.paused = false;
+            this.playPauseBtn.textContent = '⏸️ Pause';
+            this.startAnimation();
         });
         
         this.speedSlider.addEventListener('input', (e) => {
@@ -112,10 +106,8 @@ cclass NQueensVisualizer {
         // Handle page visibility change
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
-                // Page hidden, stop animation to save resources
                 this.stopAnimation();
             } else {
-                // Page visible again, restart if not paused
                 if (!this.paused && !this.solved) {
                     this.startAnimation();
                 }
@@ -123,15 +115,58 @@ cclass NQueensVisualizer {
         });
     }
     
-    // NEW: Start animation loop
-    startAnimation() {
-        if (this.animationRunning) return;
-        this.animationRunning = true;
-        this.lastUpdate = performance.now();
-        this.animate();
+    // NEW: Properly initialize/resize arrays
+    initializeArrays() {
+        this.queens = new Array(this.n).fill(0);
+        this.colConflicts = new Array(this.n).fill(0);
+        this.diag1Conflicts = new Array(2 * this.n - 1).fill(0);
+        this.diag2Conflicts = new Array(2 * this.n - 1).fill(0);
+        this.conflicts = new Array(this.n).fill(0);
     }
     
-    // NEW: Stop animation loop
+    startNewBoard() {
+        const newN = parseInt(this.nInput.value);
+        if (newN >= 4 && newN <= 30) {
+            this.n = newN;
+            
+            // CRITICAL: Reinitialize ALL arrays with new size
+            this.initializeArrays();
+            
+            // Reset all counters
+            this.attempt = 1;
+            this.step = 0;
+            this.solved = false;
+            this.paused = false;
+            
+            // Generate new random board
+            this.randomize();
+            
+            // Update UI
+            this.playPauseBtn.textContent = '⏸️ Pause';
+            this.updateUI();
+            this.adjustCanvasSize();
+            this.draw();
+            
+            // Restart animation
+            this.stopAnimation();
+            this.startAnimation();
+        } else {
+            alert('Please enter a number between 4 and 30');
+        }
+    }
+    
+    startAnimation() {
+        // Stop any existing animation first
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+        }
+        
+        this.animationRunning = true;
+        this.lastUpdate = performance.now();
+        this.animationId = requestAnimationFrame(this.animate);
+    }
+    
     stopAnimation() {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
@@ -140,7 +175,6 @@ cclass NQueensVisualizer {
         this.animationRunning = false;
     }
     
-    // FIXED: Better toggle pause
     togglePause() {
         this.paused = !this.paused;
         this.playPauseBtn.textContent = this.paused ? '▶️ Play' : '⏸️ Pause';
@@ -165,29 +199,31 @@ cclass NQueensVisualizer {
     }
     
     randomize() {
-        // Random initial placement
-        this.queens = [];
+        // Random initial placement - one queen per row, random column
         for (let i = 0; i < this.n; i++) {
-            this.queens.push(Math.floor(Math.random() * this.n));
+            this.queens[i] = Math.floor(Math.random() * this.n);
         }
         
         this.updateConflicts();
         this.solved = this.checkSolved();
-        this.step = 0;
-        this.adjustCanvasSize();
-        this.updateUI();
     }
     
     reset() {
         this.attempt++;
         this.randomize();
+        this.updateUI();
+        this.draw();
     }
     
     updateConflicts() {
-        // Reset conflict arrays
-        this.colConflicts = new Array(this.n).fill(0);
-        this.diag1Conflicts = new Array(2 * this.n - 1).fill(0);
-        this.diag2Conflicts = new Array(2 * this.n - 1).fill(0);
+        // Reset conflict arrays to zero
+        for (let i = 0; i < this.n; i++) {
+            this.colConflicts[i] = 0;
+        }
+        for (let i = 0; i < 2 * this.n - 1; i++) {
+            this.diag1Conflicts[i] = 0;
+            this.diag2Conflicts[i] = 0;
+        }
         
         // Count conflicts
         for (let row = 0; row < this.n; row++) {
@@ -198,13 +234,12 @@ cclass NQueensVisualizer {
         }
         
         // Calculate conflicts per queen
-        this.conflicts = [];
         for (let row = 0; row < this.n; row++) {
             const col = this.queens[row];
             const conflictCount = (this.colConflicts[col] - 1) +
                                  (this.diag1Conflicts[row + col] - 1) +
                                  (this.diag2Conflicts[row - col + this.n - 1] - 1);
-            this.conflicts.push(conflictCount);
+            this.conflicts[row] = conflictCount;
         }
     }
     
@@ -232,13 +267,12 @@ cclass NQueensVisualizer {
         this.diag2Conflicts[row - newCol + this.n - 1]++;
         
         // Update conflicts for all queens
-        this.conflicts = [];
         for (let r = 0; r < this.n; r++) {
             const c = this.queens[r];
             const conflictCount = (this.colConflicts[c] - 1) +
                                  (this.diag1Conflicts[r + c] - 1) +
                                  (this.diag2Conflicts[r - c + this.n - 1] - 1);
-            this.conflicts.push(conflictCount);
+            this.conflicts[r] = conflictCount;
         }
     }
     
@@ -253,7 +287,10 @@ cclass NQueensVisualizer {
     }
     
     checkSolved() {
-        return this.conflicts.every(c => c === 0);
+        for (let i = 0; i < this.n; i++) {
+            if (this.conflicts[i] !== 0) return false;
+        }
+        return true;
     }
     
     stepSolution() {
@@ -303,7 +340,14 @@ cclass NQueensVisualizer {
     
     updateUI() {
         this.stepsSpan.textContent = this.step;
-        const totalConflicts = this.conflicts.reduce((a, b) => a + b, 0) / 2;
+        
+        // Calculate total conflicts (divide by 2 because each conflict is counted twice)
+        let totalConflicts = 0;
+        for (let i = 0; i < this.n; i++) {
+            totalConflicts += this.conflicts[i];
+        }
+        totalConflicts = Math.floor(totalConflicts / 2);
+        
         this.conflictsSpan.textContent = totalConflicts;
         this.attemptSpan.textContent = this.attempt;
         
@@ -375,11 +419,10 @@ cclass NQueensVisualizer {
         }
     }
     
-    // FIXED: Better animation loop
     animate(currentTime) {
         if (!this.animationRunning) return;
         
-        // Request next frame immediately
+        // Request next frame
         this.animationId = requestAnimationFrame(this.animate);
         
         // Skip if paused or solved
@@ -391,10 +434,10 @@ cclass NQueensVisualizer {
         const elapsed = currentTime - this.lastUpdate;
         const stepInterval = 1000 / this.speed;
         
-        // Take multiple steps if we're behind (prevents freezing)
+        // Take steps based on elapsed time
         if (elapsed >= stepInterval) {
             const stepsToTake = Math.floor(elapsed / stepInterval);
-            for (let i = 0; i < Math.min(stepsToTake, 5); i++) {  // Max 5 steps per frame
+            for (let i = 0; i < Math.min(stepsToTake, 5); i++) {
                 this.stepSolution();
                 if (this.solved) break;
             }
