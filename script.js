@@ -139,7 +139,6 @@ function checkForStall() {
             
             // Visual indication of restart
             statusDiv.textContent = `🔄 Restarting attempt #${attemptCount}...`;
-            statusDiv.style.backgroundColor = '#fff3cd';
             
             // Short delay before restart (so user can see)
             setTimeout(() => {
@@ -221,118 +220,134 @@ function step() {
     draw();
 }
 
-// Draw the board with nicer queens
+// Draw the board with bold conflict visualization
 function draw() {
     const size = 400;
     const cellSize = size / n;
     
     ctx.clearRect(0, 0, size, size);
     
-    // Draw grid with gradient
+    // Draw chessboard
     for (let row = 0; row < n; row++) {
         for (let col = 0; col < n; col++) {
-            // Chessboard pattern with subtle gradient
+            const x = col * cellSize;
+            const y = row * cellSize;
+            
+            // Classic chessboard colors
             if ((row + col) % 2 === 0) {
-                // Light squares - cream color
-                ctx.fillStyle = '#f0d9b5';
+                ctx.fillStyle = '#f0d9b5';  // Light square
             } else {
-                // Dark squares - brown
-                ctx.fillStyle = '#b58863';
+                ctx.fillStyle = '#b58863';  // Dark square
             }
             
-            ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+            ctx.fillRect(x, y, cellSize, cellSize);
             
-            // Add subtle inner shadow
-            ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+            // Grid lines
+            ctx.strokeStyle = '#8b5a2b';
             ctx.lineWidth = 1;
-            ctx.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
+            ctx.strokeRect(x, y, cellSize, cellSize);
         }
     }
     
     // Draw queens
     for (let row = 0; row < n; row++) {
-        let col = queens[row];
-        let x = col * cellSize + cellSize / 2;
-        let y = row * cellSize + cellSize / 2;
-        let radius = cellSize * 0.35;
-        
-        // Draw queen with gradient
-        const gradient = ctx.createRadialGradient(x-3, y-3, 2, x, y, radius+5);
+        const col = queens[row];
+        const x = col * cellSize;
+        const y = row * cellSize;
         
         if (conflicts[row] > 0) {
-            // Queen in conflict - red gradient
-            gradient.addColorStop(0, '#ff6b6b');
-            gradient.addColorStop(1, '#c92a2a');
-        } else {
-            // Queen safe - royal gradient
-            gradient.addColorStop(0, '#4dabf7');
-            gradient.addColorStop(1, '#1864ab');
-        }
-        
-        // Draw queen base (circle)
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, 2 * Math.PI);
-        ctx.fillStyle = gradient;
-        ctx.fill();
-        
-        // Add highlight
-        ctx.beginPath();
-        ctx.arc(x-3, y-3, radius/3, 0, 2 * Math.PI);
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.fill();
-        
-        // Add crown
-        ctx.shadowColor = 'rgba(0,0,0,0.3)';
-        ctx.shadowBlur = 3;
-        ctx.shadowOffsetY = 2;
-        
-        ctx.fillStyle = '#ffd700'; // Gold color
-        ctx.font = `${radius}px "Segoe UI", "Arial Unicode MS", Arial, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('♛', x, y-2); // Fancy queen symbol
-        
-        // Remove shadow for other drawings
-        ctx.shadowColor = 'transparent';
-        
-        // Add conflict count badge if needed
-        if (conflicts[row] > 0) {
-            // Draw badge background
-            ctx.beginPath();
-            ctx.arc(x + radius*0.7, y - radius*0.7, radius*0.4, 0, 2 * Math.PI);
-            ctx.fillStyle = '#ff4444';
-            ctx.fill();
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            // QUEEN WITH CONFLICT - FULL RED SQUARE
+            ctx.fillStyle = '#ff4444';  // Bright red
+            ctx.fillRect(x, y, cellSize, cellSize);
             
-            // Draw conflict number
+            // Add a pattern to make it more visible
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            for (let i = 0; i < cellSize; i += 10) {
+                ctx.fillRect(x + i, y, 2, cellSize);
+            }
+            
+            // Draw the conflict number LARGE
             ctx.fillStyle = 'white';
-            ctx.font = `bold ${radius*0.4}px Arial`;
+            ctx.font = `bold ${cellSize * 0.7}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(conflicts[row], x + radius*0.7, y - radius*0.7);
-        }
-        
-        // Add a small glow for solved queens
-        if (conflicts[row] === 0 && isSolved_flag) {
-            ctx.shadowColor = '#4dabf7';
-            ctx.shadowBlur = 15;
+            ctx.fillText(conflicts[row], x + cellSize/2, y + cellSize/2);
+            
+            // Add a small queen symbol in corner
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.font = `${cellSize * 0.25}px Arial`;
+            ctx.fillText('♕', x + cellSize * 0.15, y + cellSize * 0.15);
+            
+        } else {
+            // SAFE QUEEN - ELEGANT BLUE
+            const centerX = x + cellSize/2;
+            const centerY = y + cellSize/2;
+            const radius = cellSize * 0.4;
+            
+            // Blue gradient for safe queen
+            const gradient = ctx.createRadialGradient(
+                centerX - 3, centerY - 3, 5,
+                centerX, centerY, radius + 5
+            );
+            gradient.addColorStop(0, '#4dabf7');
+            gradient.addColorStop(1, '#1971c2');
+            
+            // Draw queen circle
             ctx.beginPath();
-            ctx.arc(x, y, radius*1.1, 0, 2 * Math.PI);
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Add highlight
+            ctx.beginPath();
+            ctx.arc(centerX - 3, centerY - 3, radius/3, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.fill();
+            
+            // Draw crown
+            ctx.fillStyle = '#ffd700';  // Gold
+            ctx.font = `${radius * 0.8}px "Segoe UI", "Arial Unicode MS", Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('♕', centerX, centerY - 2);
+            
+            // Add a subtle glow for safe queens
+            ctx.shadowColor = '#4dabf7';
+            ctx.shadowBlur = 10;
             ctx.strokeStyle = '#4dabf7';
             ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius + 2, 0, 2 * Math.PI);
             ctx.stroke();
             ctx.shadowColor = 'transparent';
         }
     }
     
-    // Draw attempt counter on board if multiple attempts
+    // Draw attempt counter
     if (attemptCount > 1 && !isSolved_flag) {
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
         ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'right';
         ctx.fillText(`Attempt #${attemptCount}`, size-10, 30);
+        
+        // Add stall warning if close to restart
+        if (stallCounter > STALL_THRESHOLD * 0.7) {
+            ctx.fillStyle = 'rgba(255, 165, 0, 0.8)';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`⚠️ Stalled...`, 10, 30);
+        }
+    }
+    
+    // Draw solved celebration
+    if (isSolved_flag) {
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';  // Gold overlay
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 30px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('✓ SOLVED ✓', size/2, size/2);
     }
 }
 
