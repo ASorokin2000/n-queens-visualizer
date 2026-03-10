@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>N-Queens Visualizer - Minimum Conflicts Algorithm</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Add a nice font from Google -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>👑 N-Queens Visualizer</h1>
+            <p class="subtitle">Watch the Minimum Conflicts algorithm solve the N-Queens puzzle in real-time!</p>
+        </header>
+
+        <main>
+            <div class="control-panel">
+                <div class="input-group">
+                    <label for="n-input">Board Size (N):</label>
+                    <input type="number" id="n-input" min="4" max="30" value="8">
+                    <button id="start-btn" class="btn primary">Start</button>
+                </div>
+
+                <div class="stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Steps:</span>
+                        <span id="steps-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Conflicts:</span>
+                        <span id="conflicts-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Attempt:</span>
+                        <span id="attempt-count">1</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Status:</span>
+                        <span id="status" class="status-solving">Solving...</span>
+                    </div>
+                </div>
+
+                <div class="speed-control">
+                    <label>Speed:</label>
+                    <input type="range" id="speed-slider" min="1" max="60" value="10">
+                    <span id="speed-value">10 steps/sec</span>
+                </div>
+
+                <div class="button-group">
+                    <button id="play-pause-btn" class="btn">⏸️ Pause</button>
+                    <button id="step-btn" class="btn">⏩ Step</button>
+                    <button id="randomize-btn" class="btn">🎲 Randomize</button>
+                    <button id="reset-btn" class="btn">🔄 Reset</button>
+                </div>
+            </div>
+
+            <div class="board-container">
+                <canvas id="board-canvas"></canvas>
+            </div>
+
+            <div class="info-panel">
+                <h3>How it works</h3>
+                <p>The Minimum Conflicts algorithm:</p>
+                <ol>
+                    <li>Start with random queen placement</li>
+                    <li>Pick a queen that's under attack (in <span class="red-dot">red</span>)</li>
+                    <li>Move it to the column with fewest conflicts</li>
+                    <li>Repeat until all queens are safe (in <span class="blue-dot">blue</span>)</li>
+                </ol>
+                <p><strong>Tip:</strong> Try N=14 to see the algorithm in action!</p>
+            </div>
+        </main>
+
+        <footer>
+            <p>Created with ❤️ for the N-Queens problem | 
+               <a href="https://github.com/yourusername/n-queens-visualizer" target="_blank">GitHub</a>
+            </p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
