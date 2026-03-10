@@ -5,6 +5,7 @@ const ctx = canvas.getContext('2d');
 // Get UI elements
 const stepSpan = document.getElementById('stepCount');
 const conflictSpan = document.getElementById('conflictCount');
+const attemptSpan = document.getElementById('attemptCount');
 const statusDiv = document.getElementById('status');
 const playPauseBtn = document.getElementById('playPauseBtn');
 const speedSlider = document.getElementById('speedSlider');
@@ -19,10 +20,16 @@ let n = 8;
 let queens = [];
 let conflicts = [];
 let stepCount = 0;
+let attemptCount = 1;
 let isPaused = false;
 let isSolved_flag = false;
 let speed = 10;
 let animationTimer = null;
+
+// Stall detection
+let lastConflicts = 0;
+let stallCounter = 0;
+const STALL_THRESHOLD = 50; // Number of steps without improvement before restart
 
 // Speed slider event
 speedSlider.addEventListener('input', function() {
@@ -54,6 +61,8 @@ function init() {
     }
     calculateConflicts();
     stepCount = 0;
+    lastConflicts = totalConflicts();
+    stallCounter = 0;
     isSolved_flag = checkSolved();
     updateUI();
     draw();
@@ -97,6 +106,7 @@ function checkSolved() {
 function updateUI() {
     stepSpan.textContent = stepCount;
     conflictSpan.textContent = totalConflicts();
+    if (attemptSpan) attemptSpan.textContent = attemptCount;
     
     if (isSolved_flag) {
         statusDiv.textContent = '🎉 SOLVED! 🎉';
@@ -111,9 +121,51 @@ function updateUI() {
     }
 }
 
+// Check for stall and restart if needed
+function checkForStall() {
+    const currentConflicts = totalConflicts();
+    
+    if (currentConflicts === 0) {
+        isSolved_flag = true;
+        return false;
+    }
+    
+    if (currentConflicts >= lastConflicts) {
+        stallCounter++;
+        if (stallCounter >= STALL_THRESHOLD) {
+            // Stall detected - restart with new random board
+            attemptCount++;
+            console.log(`Stall detected! Restarting attempt #${attemptCount}`);
+            
+            // Visual indication of restart
+            statusDiv.textContent = `🔄 Restarting attempt #${attemptCount}...`;
+            statusDiv.style.backgroundColor = '#fff3cd';
+            
+            // Short delay before restart (so user can see)
+            setTimeout(() => {
+                init();
+                draw();
+            }, 500);
+            
+            return true; // Restart initiated
+        }
+    } else {
+        // Improvement! Reset stall counter
+        stallCounter = 0;
+    }
+    
+    lastConflicts = currentConflicts;
+    return false;
+}
+
 // One step of the algorithm
 function step() {
     if (isSolved_flag) return;
+    
+    // Check for stall before proceeding
+    if (checkForStall()) {
+        return; // Restart was initiated
+    }
     
     // Find conflicting queens
     let withConflicts = [];
@@ -169,25 +221,30 @@ function step() {
     draw();
 }
 
-// Draw the board
+// Draw the board with nicer queens
 function draw() {
     const size = 400;
     const cellSize = size / n;
     
     ctx.clearRect(0, 0, size, size);
     
-    // Draw grid
+    // Draw grid with gradient
     for (let row = 0; row < n; row++) {
         for (let col = 0; col < n; col++) {
-            // Chessboard pattern
+            // Chessboard pattern with subtle gradient
             if ((row + col) % 2 === 0) {
-                ctx.fillStyle = '#f0f0f0';
+                // Light squares - cream color
+                ctx.fillStyle = '#f0d9b5';
             } else {
-                ctx.fillStyle = '#808080';
+                // Dark squares - brown
+                ctx.fillStyle = '#b58863';
             }
             
             ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
-            ctx.strokeStyle = '#000';
+            
+            // Add subtle inner shadow
+            ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+            ctx.lineWidth = 1;
             ctx.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
         }
     }
@@ -197,35 +254,85 @@ function draw() {
         let col = queens[row];
         let x = col * cellSize + cellSize / 2;
         let y = row * cellSize + cellSize / 2;
-        let radius = cellSize / 3;
+        let radius = cellSize * 0.35;
         
-        // Color based on conflict
+        // Draw queen with gradient
+        const gradient = ctx.createRadialGradient(x-3, y-3, 2, x, y, radius+5);
+        
         if (conflicts[row] > 0) {
-            ctx.fillStyle = '#ff4444';  // Red for conflicts
+            // Queen in conflict - red gradient
+            gradient.addColorStop(0, '#ff6b6b');
+            gradient.addColorStop(1, '#c92a2a');
         } else {
-            ctx.fillStyle = '#4444ff';  // Blue for safe
+            // Queen safe - royal gradient
+            gradient.addColorStop(0, '#4dabf7');
+            gradient.addColorStop(1, '#1864ab');
         }
         
-        // Draw queen circle
+        // Draw queen base (circle)
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = gradient;
         ctx.fill();
-        ctx.strokeStyle = '#000';
-        ctx.stroke();
         
-        // Draw Q
-        ctx.fillStyle = 'white';
-        ctx.font = `${radius}px Arial`;
+        // Add highlight
+        ctx.beginPath();
+        ctx.arc(x-3, y-3, radius/3, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fill();
+        
+        // Add crown
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 3;
+        ctx.shadowOffsetY = 2;
+        
+        ctx.fillStyle = '#ffd700'; // Gold color
+        ctx.font = `${radius}px "Segoe UI", "Arial Unicode MS", Arial, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('Q', x, y);
+        ctx.fillText('♛', x, y-2); // Fancy queen symbol
         
-        // Show conflict count if > 0
+        // Remove shadow for other drawings
+        ctx.shadowColor = 'transparent';
+        
+        // Add conflict count badge if needed
         if (conflicts[row] > 0) {
-            ctx.fillStyle = 'black';
-            ctx.font = `${radius/2}px Arial`;
-            ctx.fillText(conflicts[row], x + radius/2, y - radius/2);
+            // Draw badge background
+            ctx.beginPath();
+            ctx.arc(x + radius*0.7, y - radius*0.7, radius*0.4, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ff4444';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw conflict number
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${radius*0.4}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(conflicts[row], x + radius*0.7, y - radius*0.7);
         }
+        
+        // Add a small glow for solved queens
+        if (conflicts[row] === 0 && isSolved_flag) {
+            ctx.shadowColor = '#4dabf7';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(x, y, radius*1.1, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#4dabf7';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.shadowColor = 'transparent';
+        }
+    }
+    
+    // Draw attempt counter on board if multiple attempts
+    if (attemptCount > 1 && !isSolved_flag) {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'right';
+        ctx.fillText(`Attempt #${attemptCount}`, size-10, 30);
     }
 }
 
@@ -248,6 +355,7 @@ function togglePlay() {
 
 // Randomize board
 function randomize() {
+    attemptCount = 1; // Reset attempt counter on manual randomize
     init();
     if (!isPaused && animationTimer) {
         startAnimation();
@@ -268,6 +376,7 @@ function reset() {
     // Reset state
     isPaused = false;
     isSolved_flag = false;
+    attemptCount = 1;
     playPauseBtn.textContent = '⏸️ Pause';
     
     // Initialize new board
