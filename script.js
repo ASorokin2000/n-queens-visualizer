@@ -1,4 +1,4 @@
-class NQueensVisualizer {
+cclass NQueensVisualizer {
     constructor() {
         this.canvas = document.getElementById('board-canvas');
         this.ctx = this.canvas.getContext('2d');
@@ -13,20 +13,21 @@ class NQueensVisualizer {
         this.canvas.height = this.boardSize;
         
         // Algorithm state
-        this.queens = [];           // queens[row] = column
+        this.queens = [];
         this.colConflicts = [];
-        this.diag1Conflicts = [];   // r + c
-        this.diag2Conflicts = [];   // r - c + n - 1
-        this.conflicts = [];         // conflicts per queen
+        this.diag1Conflicts = [];
+        this.diag2Conflicts = [];
+        this.conflicts = [];
         
-        // Animation state
+        // Animation state - FIXED: Better animation control
         this.step = 0;
         this.attempt = 1;
         this.solved = false;
         this.paused = false;
-        this.speed = 10;  // steps per second
-        this.animationFrame = null;
+        this.speed = 10;
+        this.animationId = null;  // Store animation ID
         this.lastUpdate = 0;
+        this.animationRunning = false;  // Track if animation is running
         
         // UI elements
         this.stepsSpan = document.getElementById('steps-count');
@@ -36,18 +37,25 @@ class NQueensVisualizer {
         this.speedSlider = document.getElementById('speed-slider');
         this.speedValue = document.getElementById('speed-value');
         this.nInput = document.getElementById('n-input');
+        this.playPauseBtn = document.getElementById('play-pause-btn');
         
         // Bind methods
         this.animate = this.animate.bind(this);
         this.stepSolution = this.stepSolution.bind(this);
         this.randomize = this.randomize.bind(this);
         this.reset = this.reset.bind(this);
+        this.togglePause = this.togglePause.bind(this);
+        this.startAnimation = this.startAnimation.bind(this);
+        this.stopAnimation = this.stopAnimation.bind(this);
         
         // Setup event listeners
         this.setupEventListeners();
         
         // Initialize board
         this.randomize();
+        
+        // Start animation immediately
+        this.startAnimation();
     }
     
     setupEventListeners() {
@@ -61,17 +69,13 @@ class NQueensVisualizer {
             }
         });
         
-        document.getElementById('play-pause-btn').addEventListener('click', (e) => {
-            this.paused = !this.paused;
-            e.target.textContent = this.paused ? '▶️ Play' : '⏸️ Pause';
-            if (!this.paused) {
-                this.animate();
-            }
-        });
+        this.playPauseBtn.addEventListener('click', this.togglePause);
         
         document.getElementById('step-btn').addEventListener('click', () => {
+            // Pause animation when manually stepping
             this.paused = true;
-            document.getElementById('play-pause-btn').textContent = '▶️ Play';
+            this.playPauseBtn.textContent = '▶️ Play';
+            this.stopAnimation();
             this.stepSolution();
             this.draw();
         });
@@ -79,10 +83,19 @@ class NQueensVisualizer {
         document.getElementById('randomize-btn').addEventListener('click', () => {
             this.randomize();
             this.draw();
+            // Restart animation if it was running
+            if (!this.paused && !this.animationRunning) {
+                this.startAnimation();
+            }
         });
         
         document.getElementById('reset-btn').addEventListener('click', () => {
             this.reset();
+            this.draw();
+            // Restart animation if it was running
+            if (!this.paused && !this.animationRunning) {
+                this.startAnimation();
+            }
         });
         
         this.speedSlider.addEventListener('input', (e) => {
@@ -93,17 +106,62 @@ class NQueensVisualizer {
         // Handle window resize
         window.addEventListener('resize', () => {
             this.adjustCanvasSize();
+            this.draw();
         });
+        
+        // Handle page visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Page hidden, stop animation to save resources
+                this.stopAnimation();
+            } else {
+                // Page visible again, restart if not paused
+                if (!this.paused && !this.solved) {
+                    this.startAnimation();
+                }
+            }
+        });
+    }
+    
+    // NEW: Start animation loop
+    startAnimation() {
+        if (this.animationRunning) return;
+        this.animationRunning = true;
+        this.lastUpdate = performance.now();
+        this.animate();
+    }
+    
+    // NEW: Stop animation loop
+    stopAnimation() {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+        }
+        this.animationRunning = false;
+    }
+    
+    // FIXED: Better toggle pause
+    togglePause() {
+        this.paused = !this.paused;
+        this.playPauseBtn.textContent = this.paused ? '▶️ Play' : '⏸️ Pause';
+        
+        if (this.paused) {
+            this.stopAnimation();
+        } else {
+            this.startAnimation();
+        }
     }
     
     adjustCanvasSize() {
         const container = this.canvas.parentElement;
-        const maxSize = Math.min(container.clientWidth, 600);
+        const containerWidth = container.clientWidth;
+        const maxSize = Math.min(containerWidth, 600);
         this.cellSize = Math.floor(maxSize / this.n);
         this.boardSize = this.n * this.cellSize;
         this.canvas.width = this.boardSize;
         this.canvas.height = this.boardSize;
-        this.draw();
+        this.canvas.style.width = `${this.boardSize}px`;
+        this.canvas.style.height = `${this.boardSize}px`;
     }
     
     randomize() {
@@ -173,7 +231,7 @@ class NQueensVisualizer {
         this.diag1Conflicts[row + newCol]++;
         this.diag2Conflicts[row - newCol + this.n - 1]++;
         
-        // Update conflicts for affected queens
+        // Update conflicts for all queens
         this.conflicts = [];
         for (let r = 0; r < this.n; r++) {
             const c = this.queens[r];
@@ -207,6 +265,10 @@ class NQueensVisualizer {
             this.solved = true;
             this.statusSpan.textContent = 'Solved! 🎉';
             this.statusSpan.className = 'status-solved';
+            // Stop animation when solved
+            this.stopAnimation();
+            this.paused = true;
+            this.playPauseBtn.textContent = '▶️ Play';
             return;
         }
         
@@ -234,6 +296,9 @@ class NQueensVisualizer {
         this.step++;
         this.solved = this.checkSolved();
         this.updateUI();
+        
+        // Redraw after each step
+        this.draw();
     }
     
     updateUI() {
@@ -291,6 +356,7 @@ class NQueensVisualizer {
             this.ctx.beginPath();
             this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
             this.ctx.fill();
+            this.ctx.strokeStyle = '#000';
             this.ctx.stroke();
             
             // Draw crown symbol (Q)
@@ -309,30 +375,35 @@ class NQueensVisualizer {
         }
     }
     
-    animate(timestamp) {
+    // FIXED: Better animation loop
+    animate(currentTime) {
+        if (!this.animationRunning) return;
+        
+        // Request next frame immediately
+        this.animationId = requestAnimationFrame(this.animate);
+        
+        // Skip if paused or solved
         if (this.paused || this.solved) return;
         
-        if (!this.lastUpdate) this.lastUpdate = timestamp;
+        // Time-based animation
+        if (!this.lastUpdate) this.lastUpdate = currentTime;
         
-        const elapsed = timestamp - this.lastUpdate;
-        const stepInterval = 1000 / this.speed;  // ms per step
+        const elapsed = currentTime - this.lastUpdate;
+        const stepInterval = 1000 / this.speed;
         
+        // Take multiple steps if we're behind (prevents freezing)
         if (elapsed >= stepInterval) {
-            this.stepSolution();
-            this.draw();
-            this.lastUpdate = timestamp;
+            const stepsToTake = Math.floor(elapsed / stepInterval);
+            for (let i = 0; i < Math.min(stepsToTake, 5); i++) {  // Max 5 steps per frame
+                this.stepSolution();
+                if (this.solved) break;
+            }
+            this.lastUpdate = currentTime;
         }
-        
-        this.animationFrame = requestAnimationFrame(this.animate);
-    }
-    
-    start() {
-        this.animate();
     }
 }
 
 // Initialize when page loads
 window.addEventListener('load', () => {
     const visualizer = new NQueensVisualizer();
-    visualizer.start();
 });
