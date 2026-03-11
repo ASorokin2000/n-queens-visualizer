@@ -213,10 +213,10 @@ async function runBenchmark() {
     console.log('Running 100 tests for each N from 4 to 30...\n');
     
     const results = [];
-    const TESTS_PER_N = 100;
+    const TESTS_PER_N = 1000;
     
     // For each N
-    for (let n = 4; n <= 30; n++) {
+    for (let n = 4; n <= 100; n++) {
         console.log(`\n📊 Testing N = ${n}`);
         
         const steps = [];
